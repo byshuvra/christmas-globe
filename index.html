@@ -1,0 +1,1367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Frostglobe — an interactive ASCII snow globe</title>
+<style>
+:root{--bg:#04060b;--fg:#cbd5e1;--dim:#64748b;--btn:#0b1220cc;--line:#26324a;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#04060b;--fg:#cbd5e1;--dim:#64748b;--btn:#0b1220cc;--line:#26324a}}
+:root[data-theme="dark"]{--bg:#04060b;--fg:#cbd5e1;--dim:#64748b;--btn:#0b1220cc;--line:#26324a}
+html{scroll-padding-top:env(safe-area-inset-top,0px);height:100%}
+body{margin:0;height:100%;background:var(--bg);color:var(--fg);font-family:ui-monospace,Menlo,Consolas,monospace;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
+canvas{display:block;width:100%;height:100%;cursor:crosshair;touch-action:none}
+#h2{position:absolute;left:14px;top:calc(100% + 2px);color:#e8d9a0;font-size:11.5px;line-height:1.5;max-width:min(58vw,420px);white-space:normal}
+#h2[hidden]{display:none}
+#hn,#hs{font-size:10.5px;color:var(--dim);letter-spacing:0;line-height:1.5;background:linear-gradient(100deg,#64748b 0%,#64748b 30%,#e9d9a4 46%,#fffbe8 51%,#e9d9a4 56%,#64748b 72%,#64748b 100%);background-size:240% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;animation:hxshimmer 6s linear infinite}
+@media (max-width:640px){
+ #h0{max-width:calc(100vw - 132px)}
+ #hn,#hs{font-size:10px}
+}
+#hx{position:fixed;right:14px;top:calc(9px + env(safe-area-inset-top,0px));z-index:6;
+ font:10.5px/1 ui-monospace,Menlo,Consolas,monospace;text-decoration:none;
+ padding:5px 9px 6px;border-radius:999px;border:1px solid #1d2637;background:#0b1220aa;
+ background-clip:padding-box;transition:border-color .25s,background-color .25s}
+#hx span{background:linear-gradient(100deg,#64748b 0%,#64748b 30%,#e9d9a4 46%,#fffbe8 51%,#e9d9a4 56%,#64748b 72%,#64748b 100%);
+ background-size:280% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;
+ animation:hxshimmer 6s linear infinite}
+@keyframes hxshimmer{0%{background-position:170% 0}100%{background-position:-70% 0}}
+#hx:hover{border-color:#3a4a63;background-color:#111b2c}
+#hx:focus-visible{outline:2px solid #e9d9a4;outline-offset:2px}
+@media (prefers-reduced-motion:reduce){#hx span,#hn,#hs{animation:none;color:#cbd5e1;-webkit-text-fill-color:#cbd5e1}}
+#foot{position:fixed;left:0;right:0;bottom:calc(120px + env(safe-area-inset-bottom,0px));
+ display:flex;justify-content:space-between;align-items:baseline;gap:12px;
+ padding:0 14px;font-size:9.5px;line-height:1.4;pointer-events:none;z-index:2;
+ color:#3f4a5e;text-shadow:0 1px 6px #04060b,0 0 10px #04060b}
+#h1{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+#hcrumb{white-space:nowrap;flex:none;letter-spacing:.02em}
+@media (max-width:480px){
+ #bar{gap:6px;padding:0 8px calc(12px + env(safe-area-inset-bottom,0px))}
+ #bar button{font-size:10px;padding:7px 9px}
+ #bm{min-width:94px}#bsnd{min-width:86px}#bg{min-width:118px}
+}
+
+#h1.from{color:#cbd5e1;font-size:11.5px}
+#hud{position:fixed;left:0;top:0;padding:calc(10px + env(safe-area-inset-top,0px)) 14px 0;font-size:10.5px;line-height:1.5;color:var(--dim);pointer-events:none;text-shadow:0 1px 6px #04060b,0 0 14px #04060b;z-index:3}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(150px + env(safe-area-inset-bottom,0px));background:var(--btn);border:1px solid var(--line);color:var(--fg);padding:7px 14px;border-radius:999px;font:12px/1 ui-monospace,Menlo,Consolas,monospace;opacity:0;transition:opacity .25s;pointer-events:none;z-index:9}
+#toast.on{opacity:1}
+#hint{position:fixed;left:0;right:0;bottom:calc(144px + env(safe-area-inset-bottom,0px));text-align:center;font-size:11px;color:#94a3b8;pointer-events:none;transition:opacity 1s;padding:0 18px;text-shadow:0 1px 8px #04060b,0 0 18px #04060b}
+@media (max-height:520px){#hint{display:none}}
+#hint.off{opacity:0}
+#bar{position:fixed;left:0;right:0;bottom:0;display:flex;flex-wrap:wrap;gap:8px;justify-content:center;padding:0 10px calc(14px + env(safe-area-inset-bottom,0px))}
+button{font:inherit;font-size:11px;color:var(--fg);background:var(--btn);border:1px solid var(--line);border-radius:999px;padding:8px 14px;cursor:pointer;touch-action:manipulation;backdrop-filter:blur(6px)}
+button:hover{border-color:#5eead4}
+button:active{transform:scale(.96)}
+#wish{position:fixed;left:0;right:0;bottom:calc(100px + env(safe-area-inset-bottom,0px));display:none;gap:8px;justify-content:center;padding:0 14px}
+#wi{font:inherit;font-size:16px;color:var(--fg);background:var(--btn);border:1px solid var(--line);border-radius:999px;padding:9px 16px;width:min(66vw,320px);user-select:text;-webkit-user-select:text;-webkit-touch-callout:default;outline:none}
+#wi:focus{border-color:#5eead4}
+</style>
+</head>
+<body>
+<canvas id="c" role="img" aria-label="An interactive ASCII snow globe: a fir tree inside a glass dome, with falling snow. Drag to spin, sweep to push the snow, tap for a ripple, hold to shake."></canvas>
+<div id="hud"><div id="h0"><span id="hn">Christmas Globe</span><span id="hs"> — An interactive ASCII holiday scene</span></div><div id="h2" hidden></div></div>
+<div id="foot"><div id="h1"></div><div id="hcrumb"></div></div>
+<a id="hx" href="https://x.com/shuvramotion" target="_blank" rel="noopener noreferrer" aria-label="Shuvra Sengupta on X, @shuvramotion"><span>@shuvramotion</span></a>
+<div id="toast" role="status" aria-live="polite"></div>
+<div id="hint" role="status">drag to spin · sweep through the snow · tap to send a light ripple · hold to shake · write a wish</div>
+<div id="wish"><input id="wi" maxlength="28" placeholder="type a wish…" autocomplete="off"><button id="wg">✦ send</button></div>
+<div id="bar"><button id="bw">write a wish</button><button id="bs">shake</button><button id="bg">glyphs · classic</button><button id="bm">mood · pine</button><button id="bsnd" aria-pressed="true" aria-label="sound">sound · on</button>
+<button id="bsh" aria-label="send this globe to someone">send</button><button id="bpo" aria-label="save this frame as an image">poster · png</button></div>
+<script>
+(()=>{
+const $=s=>document.querySelector(s);
+const REDUCED=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const cv=$('#c'),ctx=cv.getContext('2d',{alpha:false});
+const TAU=Math.PI*2,CAM=5.4,CY=.60,DR=1.12,H=1.46;
+let sd=7;const rnd=()=>(sd=(sd*16807)%2147483647)/2147483647;
+const gauss=()=>Math.sqrt(-2*Math.log(rnd()||1e-6))*Math.cos(TAU*rnd());
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+
+/* ---------- glyph sets & moods ---------- */
+const RAMPS={
+ classic:Array.from(" .'`^\",:;Il!i><~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$"),
+ kana:Array.from(" .･ｰｯｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝ"),
+ braille:Array.from(" ⠁⠂⠄⠈⠐⠠⠃⠅⠉⠑⠡⠇⠏⠟⠿⡿⣿"),
+ blocks:Array.from(" .:·░▒▓█")};
+const RN=Object.keys(RAMPS);let ri=0,RA=RAMPS.classic;
+// the wish always builds its letters from its own ramp: a wish rendered in
+// 'classic' used to be random density characters, which is why it was unreadable
+const WISH_RA=RAMPS.braille;
+const MOODS=[
+ // tint multiplies the whole scene (needles, branches, ground).
+ // aur  is the ribbon colour pair above the crown.
+ // lt   is the bulb palette, cycled across the tree.
+ {n:'pine', tint:[.86,1.12,.92],
+  aur:[[40,220,140],[90,120,255]],
+  lt:[[255,236,180],[255,200,60],[255,80,80],[80,235,255],[90,250,140]]},
+ {n:'frost',tint:[.55,.85,2.05],
+  aur:[[90,205,255],[200,130,255]],
+  lt:[[225,242,255],[110,195,255],[175,155,255],[255,255,255],[150,230,255]]},
+ {n:'ember',tint:[2.05,.72,.32],
+  aur:[[255,140,40],[255,60,140]],
+  lt:[[255,180,80],[255,110,40],[255,70,110],[255,230,160],[255,150,60]]}];
+let mi=0,M=MOODS[0];
+
+/* ---------- scene: point cloud ---------- */
+const SNOW=0,WOOD=1,NEEDLE=2,BALL=3,LIGHT=4,STAR=5;
+const pts=[],tips=[],dome=[];
+function add(x,y,z,nx,ny,nz,r,g,b,k,ph,sh,ci){const l=Math.hypot(nx,ny,nz)||1;pts.push({x,y,z,nx:nx/l,ny:ny/l,nz:nz/l,r,g,b,k,ph:ph||0,sh:sh||0,ci:ci||0,t0:(y+.25)*.9+rnd()*.15})}
+/* ---------- growth: the globe fills up as you play ---------- */
+// Two kinds of growth. A tap plants a gift where you touched it; a slow timer
+// blooms ornaments on the branches so the tree keeps decorating itself.
+// Everything is remembered so the globe survives a reload.
+// ---------- identity ----------
+// The name shown at the top, the author credit, and the year. Change them here.
+const SITE={
+ name:'Christmas Globe',
+ sub:'An interactive ASCII holiday scene',
+ by:'Shuvra Sengupta',
+ x:'shuvramotion',
+ year:2026
+};
+let SEED=null;
+try{SEED=window.FROST_SEED||null}catch(e){}
+if(!SEED){try{const raw=localStorage.getItem('frostglobe.seed.v1');if(raw)SEED=JSON.parse(raw)}catch(e){}}
+const GKEY='frostglobe.growth.v1';
+let growth={taps:0,gifts:[],orns:[]};
+try{const g=JSON.parse(localStorage.getItem(GKEY));if(g&&g.gifts&&!SEED)growth=g}catch(e){}
+if(SEED&&SEED.gifts)growth={taps:SEED.taps||0,gifts:SEED.gifts,orns:SEED.orns||[]};
+if(SEED&&SEED.from)window.__from=SEED.from;
+const saveGrowth=()=>{try{localStorage.setItem(GKEY,JSON.stringify(growth))}catch(e){}};
+
+// A shared globe carries its decorations and its wish inside the file itself,
+// so the recipient needs no server and no storage. Two channels:
+//  - window.FROST_SEED  : the structured data (gifts/ornaments/wish/name)
+//  - localStorage       : the same data on reload, so it survives
+let toastT=0;
+function flash(msg,ms){
+ const t=document.getElementById('toast');
+ if(!t)return;
+ t.textContent=msg;t.classList.add('on');
+ clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('on'),ms||2400);
+}
+function saveBlob(blob,name){
+ const a=document.createElement('a');
+ a.href=URL.createObjectURL(blob);
+ a.download=name;
+ document.body.appendChild(a);a.click();a.remove();
+ setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+}
+const download=()=>{
+ const html='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
+ const blob=new Blob([html],{type:'text/html'});
+ const a=document.createElement('a');
+ a.href=URL.createObjectURL(blob);
+ a.download=(SEED&&SEED.from?SEED.from.replace(/[^\w.-]+/g,'-')+'-':'')+'christmas-globe.html';
+ document.body.appendChild(a);a.click();a.remove();
+ setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+};
+// strip anything that would make the copy look mid-interaction
+function serialise(){
+ const clone=document.documentElement.cloneNode(true);
+ clone.querySelectorAll('canvas').forEach(c=>{
+  const ctx=c.getContext&&c.getContext('2d');
+  if(ctx)ctx.clearRect(0,0,c.width,c.height);
+ });
+ const wi=clone.querySelector('#wi');if(wi)wi.value='';
+ const wp=clone.querySelector('#wish');if(wp)wp.style.display='none';
+ const hint=clone.querySelector('#hint');if(hint)hint.classList.remove('off');
+ return '<!DOCTYPE html>\n'+clone.outerHTML;
+}
+
+// World position of a screen point ON THE GLASS.
+// The projection divides by (CAM-rz), so screen radius and depth are coupled.
+// A plain sphere raycast was wrong here: at this camera distance the true
+// sphere projects to a small disc well inside the drawn silhouette. Instead
+// solve the front-surface depth directly, iterating to the fixed point.
+function worldAt(px,py){
+ const a=(px/cellW-cols*.5)/bs;        // rx * gp * 1.8
+ const b=-(py/cellH-cyPx/cellH)/bs;    // ry * gp
+ const rmax=Math.max(DR*1.30,(bs*DR*1.9/bs)); // generous: same disc the ripple uses
+ if(Math.hypot(a,b)>rmax*1.6)return null;
+ let rz=0,gp=1,rx=0,ry=0;
+ for(let k=0;k<8;k++){
+  gp=CAM/(CAM-rz); rx=a/(gp*1.8); ry=b/gp;
+  const nz=Math.sqrt(Math.max(0,1-(rx*rx+ry*ry)/(DR*DR)))*DR*.62;
+  if(Math.abs(nz-rz)<1e-5){rz=nz;break}
+  rz=nz;
+ }
+ gp=CAM/(CAM-rz); rx=a/(gp*1.8); ry=b/gp;
+ if((rx*rx+ry*ry)/(DR*DR)>1)return null;
+ const yy=ry*cp+rz*sp, r1=-ry*sp+rz*cp;   // invert P() exactly
+ return {x:rx*ca+r1*sa,y:yy+CY,z:-rx*sa+r1*ca};
+}
+// screen-space bounds of the dome, for the ripple mask and tap rejection
+function domeScreen(){return {cx:cols*.5,cy:cyPx/cellH,r:bs*DR*1.35}}
+
+const GIFT_COLS=[[.85,.16,.2],[.2,.5,.95],[1,.78,.18],[.95,.95,1],[.35,.8,.5]];
+function addGift(px,py){
+ const w=worldAt(px,py);if(!w)return false;
+ if(w.y>.42)return null;               // tapped up in the branches: no floor there
+ const c=GIFT_COLS[growth.gifts.length%GIFT_COLS.length];
+ // gifts rest on the snow; a tap high in the globe lands on the outer ring
+ // pull boxes in from the rim: the outermost ring of snow is seen edge-on and
+ // swallows anything sitting on it
+ const rr=Math.hypot(w.x,w.z), maxR=.70, k=rr>maxR?maxR/rr:1;
+ growth.gifts.push({x:+(w.x*k).toFixed(3),y:+.045,z:+(w.z*k).toFixed(3),c,t0:+T.toFixed(2)});
+ if(growth.gifts.length>42)growth.gifts.shift();
+ saveGrowth();return true}
+// Hang an ornament on a real branch tip, picking the one nearest a target
+// point -- so tapping a branch decorates that branch.
+function addOrnament(px,py){
+ let tgt=null;
+ if(px!==undefined){tgt=worldAt(px,py)}
+ let best=null,bd=1e9;
+ for(const t of tips){
+  if(t.f>.94)continue;                       // skip the very top whorl
+  let d;
+  if(tgt){const dx=t.x-tgt.x,dy=t.y-tgt.y,dz=t.z-tgt.z;d=dx*dx+dy*dy+dz*dz}
+  else d=rnd()*4;                            // self-decoration wanders
+  if(d<bd){bd=d;best=t}
+ }
+ if(!best)return;
+ if(growth.orns.some(o=>Math.abs(o.x-best.x)<.02&&Math.abs(o.y-best.y)<.02))return;
+ const tl=.94, x=best.x*tl, y=best.y, z=best.z*tl;
+ growth.orns.push({x:+x.toFixed(3),y:+(y-.02).toFixed(3),z:+z.toFixed(3),
+   c:GIFT_COLS[(growth.orns.length+2)%GIFT_COLS.length],t0:+T.toFixed(2)});
+ if(growth.orns.length>60)growth.orns.shift();saveGrowth();
+}
+
+/* ---------- sound: Jingle Bells on a chime, sleigh bells on top ---------- */
+// Created lazily on the first gesture: browsers block AudioContext before that.
+let AC=null,honk=true;
+function audio(){if(!honk)return null;
+ if(!AC){const C=window.AudioContext||window.webkitAudioContext;if(!C){honk=false;return null}
+  try{AC=new C()}catch(e){honk=false;return null}}
+ if(AC.state==='suspended')AC.resume().catch(()=>{});
+ return AC}
+
+const sfx={on:true,master:null,verb:null,ambGain:null};
+// one shared bus with a small synthetic room, so taps and ambience sit together
+function sfxBus(ac){
+ if(sfx.master&&sfx.master.context===ac)return sfx.master;
+ const m=ac.createGain();m.gain.value=.9;
+ // gentle glue, not a brick wall: a hard ratio here squashed the quiet bed
+ const glue=ac.createDynamicsCompressor();
+ glue.threshold.value=-20;glue.knee.value=24;glue.ratio.value=2.5;
+ glue.attack.value=.006;glue.release.value=.25;
+ // the limiter sits last, after the reverb return, so nothing can clip
+ const lim=ac.createDynamicsCompressor();
+ lim.threshold.value=-1.5;lim.knee.value=0;lim.ratio.value=4;
+ lim.attack.value=.002;lim.release.value=.12;window.__lim=lim;
+ // a short convolver impulse: a few early reflections is enough to sound like
+ // a room rather than a dry beep
+ const ir=ac.createBuffer(2,Math.floor(ac.sampleRate*.9),ac.sampleRate);
+ for(let c=0;c<2;c++){const d=ir.getChannelData(c);
+  for(let i=0;i<d.length;i++){const t=i/d.length;d[i]=(Math.random()*2-1)*Math.pow(1-t,2.6)*.5}}
+ const conv=ac.createConvolver();conv.buffer=ir;
+ const wet=ac.createGain();wet.gain.value=.18;
+ m.connect(glue);glue.connect(lim);lim.connect(ac.destination);
+ conv.connect(wet);wet.connect(lim);
+ const ag=ac.createGain();ag.gain.value=0.55;ag.connect(m);   // the bed's own level
+ sfx.master=m;sfx.verb=conv;sfx.ambGain=ag;
+ return m}
+
+// Jingle Bells, the tune everyone knows, in the key of C.
+// [semitones above C major tonic, beats]. The phrase that every tap plays.
+const SONG={
+  head:[[4,1],[4,1],[4,2]],
+  tail:[[4,1],[4,1],[4,2],[4,1],[7,1],[0,2],[2,2],[4,4]],
+  dash:[[7,1],[7,1],[7,1],[7,1],[7,1],[4,1],[4,1],[4,1],[4,2],[2,1],[2,1],[4,1],[2,2],[7,2]],
+};
+const PHRASE=SONG.head.concat(SONG.tail);
+const TONIC=523.25;                                  // C5
+const hz=(semi)=>TONIC*Math.pow(2,semi/12);
+
+// a small struck chime: fundamental plus two quiet partials, fast attack
+function chime(ac,dest,t,freq,dur,gain){
+ const g=ac.createGain();
+ g.gain.setValueAtTime(.0001,t);
+ g.gain.linearRampToValueAtTime(gain,t+.008);
+ g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+ // fundamental carries the melody; the partials are only colour. At 0.22 the
+ // octave was louder than the note it was colouring, so the tune came out an
+ // octave up and muddy.
+ const parts=[[1,1],[2.01,.10],[3.02,.035]];
+ for(const [mul,amp] of parts){
+  const o=ac.createOscillator(),og=ac.createGain();
+  o.type='sine';o.frequency.value=freq*mul;og.gain.value=amp;
+  o.connect(og);og.connect(g);o.start(t);o.stop(t+dur+.05)}
+ // Dry into `dest`, and the reverb send *also* through dest's path: sending
+ // g straight to sfx.verb skipped the ambience gain entirely, which is why the
+ // bed stayed at a fixed level no matter what its gain was set to.
+ g.connect(dest);g.connect(sfx.verb);
+}
+
+// sleigh bells: a cluster of tiny metallic strikers, a few ms apart. This is
+// the shimmer that sits under the melody.
+function shakeBells(ac,dest,t,root,gain,count){
+ const n=count||(6+ (rnd()*2|0));
+ const RAT=[1,1.125,1.25,1.5,1.6875,2];
+ for(let i=0;i<n;i++){
+  const o=ac.createOscillator(),gg=ac.createGain();
+  o.type='triangle';
+  o.frequency.value=root*RAT[i%RAT.length]*(1+(rnd()-.5)*.006)*(1.9+rnd()*.5);
+  const st=t+i*(.016+rnd()*.02);
+  gg.gain.setValueAtTime(.0001,st);
+  gg.gain.linearRampToValueAtTime(gain*(1-i/(n+2)),st+.006);
+  gg.gain.exponentialRampToValueAtTime(.0001,st+.42+rnd()*.4);
+  o.connect(gg);gg.connect(dest);o.start(st);o.stop(st+.9)}
+}
+
+// ---- tap: a single gentle ting, panned and pitched by where you tapped ----
+// The full phrase on every click was too much; a tap should be a small
+// acknowledgement, not a performance.
+let tingAt=0;
+function bell(px,py){
+ const ac=audio();if(!ac||!sfx.on)return;
+ const bus=sfxBus(ac);
+ const g=domeScreen(), top=cyPx-g.r*cellH*.55, bot=cyPx+g.r*cellH*.85;
+ const hi=clamp(1-(py-top)/Math.max(60,bot-top),0,1);
+ // softer and quieter than the tune underneath, so it never dominates
+ const pan=ac.createStereoPanner?ac.createStereoPanner():null;
+ if(pan){pan.pan.value=clamp((px-g.cx*cellW)/(g.r*cellW*1.4),-.8,.8);pan.connect(bus)}
+ const dest=pan||bus;
+ // two pitches a fifth apart, chosen by height: a small glassy ting
+ const freq=1046.5*Math.pow(2,(Math.round(hi*5))/12);
+ // a slightly varied strike, so repeated taps aren't identical
+ const detune=1+(rnd()-.5)*.008;
+ const t0=ac.currentTime+.008;
+ // fundamental + two quiet inharmonic partials, short and clean
+ [[1,1],[2.4,.16],[3.9,.05]].forEach(([mul,amp],k)=>{
+  const o=ac.createOscillator(),gg=ac.createGain();
+  o.type='sine';o.frequency.value=freq*mul*detune;
+  gg.gain.setValueAtTime(.0001,t0);
+  gg.gain.linearRampToValueAtTime(.085*amp,t0+.006);       // gentle attack
+  gg.gain.exponentialRampToValueAtTime(.0001,t0+.55-k*.12);
+  o.connect(gg);gg.connect(dest);gg.connect(sfx.verb);
+  o.start(t0);o.stop(t0+.7);
+ });
+ if(window.__bellLog)window.__bellLog(Math.round(freq),hi);
+}
+
+// ---- ambience: the tune, arranged like a video game loop ----
+// A square-wave lead with a light vibrato, an arpeggiated triangle bass, and a
+// chip-style noise tick for a hi-hat. Same Jingle Bells, arcade palette.
+let amb={on:false,next:0,step:0,pausedUntil:0};
+// The renderer needs to know where the music is, sample-accurately. The
+// scheduler pushes each note's start time and pitch into a short ring, and the
+// frame loop reads the *audio* clock to find what is sounding right now.
+const beatRing=[];{}
+function pushBeat(t,semi,beats){beatRing.push({t,semi,beats,until:t+beats*AMB_BEAT});
+ if(beatRing.length>64)beatRing.shift()}
+// 0..1 energy of the music at audio time `now`: pulses on each note onset
+function beatEnergy(now){
+ if(!amb.on)return 0;
+ let e=0;
+ for(let i=beatRing.length-1;i>=0;i--){
+  const b=beatRing[i];
+  if(b.t>now+.02)continue;
+  const age=now-b.t;
+  if(age>1.2)break;
+  const atk=Math.min(1,age/.03);            // tiny attack ramp
+  const dec=Math.exp(-age/.17);             // snappy: bulbs flash off between notes
+  const loud=Math.min(1,.55+.45*b.beats);   // longer notes hit harder
+  e=Math.max(e,atk*dec*loud*(b.semi>=0?1:.55));
+ }
+ return e;
+}
+const AMB_BEAT=.26, AMB_LOOKAHEAD=1.5;
+// semitones above C5. 0=C5
+const AMB_TUNE=[
+  [4,1],[4,1],[4,2],[4,1],[4,1],[4,2],                    // jingle bells, jingle bells
+  [4,1],[7,1],[0,2],[2,2],[4,3],                          // jingle all the way
+  [5,2],[5,1],[5,1],[5,1],[5,1],[4,1],[4,1],[4,1],[2,1],[2,1],[4,1],[2,2],[7,2],  // oh what fun
+  [4,1],[4,1],[4,2],[4,1],[4,1],[4,2],[4,1],[7,1],[0,2],[2,2],[4,3],[0,3],          // in a one-horse
+];
+// the chord under each beat, for the arpeggio (root, third, fifth in semitones)
+const AMB_CHORDS=[
+  [-12,-8,-5],[-12,-8,-5],[-12,-8,-5],[-12,-8,-5],[-12,-8,-5],[-12,-8,-5],
+  [-12,-8,-5],[-7,-3,0],[-12,-8,-5],[-10,-6,-2],[-12,-8,-5],
+  [-7,-3,0],[-7,-3,0],[-7,-3,0],[-7,-3,0],[-7,-3,0],[-12,-8,-5],[-12,-8,-5],[-12,-8,-5],
+  [-10,-6,-2],[-10,-6,-2],[-12,-8,-5],[-10,-6,-2],[-7,-3,0],
+  [-12,-8,-5],[-12,-8,-5],[-12,-8,-5],[-12,-8,-5],[-12,-8,-5],[-12,-8,-5],
+  [-12,-8,-5],[-7,-3,0],[-12,-8,-5],[-10,-6,-2],[-12,-8,-5],[-12,-8,-5],
+];
+const AMB_VOL=.055;
+const AMB_GAIN=.55;   // the bed's own level, restored after any bus rebuild
+// a chip voice: one oscillator, a hard-ish envelope, optional vibrato
+function chip(ac,dest,t,freq,dur,gain,type,vibrato){
+ const o=ac.createOscillator(),g=ac.createGain();
+ o.type=type||'square';o.frequency.value=freq;
+ g.gain.setValueAtTime(.0001,t);
+ g.gain.linearRampToValueAtTime(gain,t+.006);
+ g.gain.setValueAtTime(gain*.72,t+Math.max(.02,dur*.55));   // chip-style plateau
+ g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+ if(vibrato){
+  const lfo=ac.createOscillator(),lg=ac.createGain();
+  lfo.frequency.value=5.5;lg.gain.value=freq*.006;
+  lfo.connect(lg);lg.connect(o.frequency);
+  lfo.start(t);lfo.stop(t+dur+.05);
+ }
+ o.connect(g);g.connect(dest);g.connect(sfx.verb);
+ o.start(t);o.stop(t+dur+.03);
+}
+// a very short filtered-noise tick, the classic chip hat
+let noiseBuf=null;
+function chipHat(ac,dest,t,gain){
+ if(!noiseBuf){noiseBuf=ac.createBuffer(1,ac.sampleRate*.05|0,ac.sampleRate);
+  const d=noiseBuf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1}
+ const s2=ac.createBufferSource();s2.buffer=noiseBuf;
+ const hp=ac.createBiquadFilter();hp.type='highpass';hp.frequency.value=6500;
+ const g=ac.createGain();
+ g.gain.setValueAtTime(gain,t);g.gain.exponentialRampToValueAtTime(.0001,t+.05);
+ s2.connect(hp);hp.connect(g);g.connect(dest);
+ s2.start(t);s2.stop(t+.06);
+}
+function ambientSchedule(){
+ const ac=audio();if(!ac||!sfx.on||!amb.on)return;
+ sfxBus(ac);const bus=sfx.ambGain||sfx.master;
+ if(amb.next<ac.currentTime)amb.next=ac.currentTime+.12;
+ while(amb.next<ac.currentTime+AMB_LOOKAHEAD){
+  const [semi,beats]=AMB_TUNE[amb.step%AMB_TUNE.length];
+  const chord=AMB_CHORDS[amb.step%AMB_CHORDS.length];
+  const dur=beats*AMB_BEAT*.92;
+  // lead
+  pushBeat(amb.next,semi,beats);
+  if(window.__lead)window.__lead.push([+amb.next.toFixed(2),semi,+hz(semi).toFixed(1)]);
+  chip(ac,bus,amb.next,hz(semi),dur,AMB_VOL*1.5,'square',true);      // lead, an octave up
+  // arpeggio under it: root, fifth, third, fifth across the beat
+  const steps=Math.max(1,Math.min(4,Math.round(beats*1.6)));
+  for(let k=0;k<steps;k++){
+   const note=chord[k%chord.length];
+   chip(ac,bus,amb.next+k*(dur/steps),hz(note-12),dur/steps*.9,AMB_VOL*.30,'triangle',false);
+  }
+  // hat on the offbeat
+  chipHat(ac,bus,amb.next+dur*.5,AMB_VOL*.16);
+  amb.step++;
+  amb.next+=beats*AMB_BEAT;
+ }
+}
+function ambientStart(){
+ const ac=audio();if(!ac)return;
+ amb.on=true;sfx.on=true;
+ if(amb.next<ac.currentTime)amb.next=ac.currentTime+.15;
+ ambientSchedule();
+ ambientPump();
+}
+function ambientStop(){amb.on=false}
+let ambTimer=0;
+function ambientPump(){
+ clearTimeout(ambTimer);
+ if(!amb.on)return;
+ ambientSchedule();
+ ambTimer=setTimeout(ambientPump,300);
+}
+// Browsers only allow audio after a gesture, so we *ask* for it immediately and,
+// if the context comes back suspended, start the loop on the first interaction
+// of any kind. Either way the user hears music without having to click the globe.
+// Chrome will not let audio start before a gesture, so we begin on the very
+// first interaction of *any* kind -- a click anywhere, a key, a scroll -- rather
+// than making the user find the globe. Creating the context any earlier only
+// produces a console warning and can never play.
+function tryAutoplay(){
+ if(!sndOn||amb.on)return;
+ const ac=audio();
+ if(!ac)return;
+ if(ac.state==='running'){ambientStart();return}
+ ac.resume().then(()=>{if(ac.state==='running'&&sndOn&&!amb.on)ambientStart()}).catch(()=>{});
+}
+['pointerdown','keydown','touchstart','wheel','scroll'].forEach(ev=>
+ addEventListener(ev,tryAutoplay,{passive:true}));
+
+let W=0,Hh=0,cols=0,rows=0,cellW=5,cellH=9,dpr=1,zb,chb,cob,glb,rect={left:0,top:0};
+let useFrac=1,cyPx=0,topPad=0,botPad=0;
+let T=0,yaw=0,yawV=0,pitch=.2,zoom=1,
+ bs=1,ca=1,sa=0,cp=1,sp=0,gx=0,gy=0,gz=0,gp=1;
+let pdown=false,pmoved=0,pt0=0,hold=0,pin=false,mx=-999,my=-999,pvx=0,pvy=0,lmt=0,lastShake=-9;
+const ripples=[],sparks=[];let wishStar=null;
+
+function resize(){
+ dpr=Math.min(devicePixelRatio||1,2);rect=cv.getBoundingClientRect();
+ // reserve the bottom band for the buttons and the hint
+ W=rect.width;Hh=Math.max(160,rect.height);
+ cv.width=Math.floor(W*dpr);cv.height=Math.floor(Hh*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);
+ // character size from the shorter axis: on a 1512x830 laptop the old rule
+ // gave 11px glyphs and a 50-row grid, which destroyed the tree's detail.
+ const shortAxis=Math.min(W,Hh);
+ cellW=Math.max(3.6,Math.min(6.2,shortAxis/135));
+ cellH=cellW*1.8;cols=Math.floor(W/cellW);rows=Math.floor(Hh/cellH);
+ const n=cols*rows;zb=new Float32Array(n);chb=new Array(n);cob=new Array(n);glb=new Uint8Array(n);
+}
+addEventListener('resize',resize);resize();
+
+function P(x,y,z){y-=CY;const rx=x*ca-z*sa,r1=x*sa+z*ca,ry=y*cp-r1*sp,rz=y*sp+r1*cp;
+ gp=CAM/(CAM-rz);gx=Math.round(cols*.5+rx*bs*1.8*gp);gy=Math.round(cyPx/cellH-ry*bs*gp);gz=rz}
+
+/* ---------- interaction ---------- */
+function shake(p){releaseWish();for(const s of snow){s.vx+=gauss()*2*p;s.vy+=(.5+rnd()*2.5)*p;s.vz+=gauss()*2*p}const d=domeScreen();ripple(d.cx*cellW,d.cy*cellH);bell(d.cx*cellW,d.cy*cellH)}
+function ripple(x,y){ripples.push({x,y,t:T,gcx:cols*.5,gcy:cyPx/cellH,grad:(bs*DR*1.9)});if(ripples.length>5)ripples.shift();$('#hint').classList.add('off')}
+cv.addEventListener('pointerdown',e=>{wakeAudio();cv.setPointerCapture(e.pointerId);pdown=true;pin=true;pmoved=0;pt0=performance.now();mx=e.clientX-rect.left;my=e.clientY-rect.top;lmt=pt0;yawV=0;
+ clearTimeout(hold);hold=setTimeout(()=>{if(pdown&&pmoved<10)shake(1.2)},550)});
+cv.addEventListener('pointermove',e=>{const nx=e.clientX-rect.left,ny=e.clientY-rect.top,now=performance.now(),d=Math.max(8,now-lmt)/1e3;
+ if(pinchOn){mx=nx;my=ny;lmt=now;return}
+ pvx+=((nx-mx)/d-pvx)*.5;pvy+=((ny-my)/d-pvy)*.5;
+ if(pdown){const dx=nx-mx;pmoved+=Math.abs(dx)+Math.abs(ny-my);yaw+=dx*.008;yawV=dx*.008/d;pitch=clamp(pitch+(ny-my)*.004,-.1,.75);
+  const spd=Math.hypot(pvx,pvy);
+  if(spd>360&&inDomePx(nx,ny)){
+   const nSp=Math.min(3,1+((spd-360)/260|0));
+   for(let k=0;k<nSp;k++){
+    sparks.push({x:nx/cellW+(Math.random()-.5)*1.4,y:ny/cellH+(Math.random()-.5)*1.2,
+     vx:(Math.random()-.5)*14+pvx*.015,vy:(Math.random()-.5)*10+4,t:T,life:.45+Math.random()*.3});
+   }
+   if(sparks.length>90)sparks.splice(0,sparks.length-90);
+  }
+ }
+ mx=nx;my=ny;lmt=now;pin=true});
+const up=e=>{if(!pdown)return;pdown=false;clearTimeout(hold);
+ if(pmoved<10&&performance.now()-pt0<350)onTap(mx,my);
+ if(e.pointerType!=='mouse')pin=false};
+// one tap = one ripple + one gift + one bell, and only inside the glass
+let woke=false;
+function wakeAudio(){if(woke)return;woke=true;if(sndOn)ambientStart()}
+function onTap(px,py){
+ wakeAudio();
+ const w=worldAt(px,py);
+ if(!w)return;                            // outside the glass: nothing happens at all
+ growth.taps++;
+ // low taps plant a gift on the snow, higher taps hang an ornament on the
+ // nearest branch; the globe fills up either way
+ if(!addGift(px,py))addOrnament(px,py);
+ ripple(px,py);bell(px,py);
+}
+cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
+cv.addEventListener('pointerleave',()=>{if(!pdown)pin=false});
+cv.addEventListener('wheel',e=>{e.preventDefault();zoom=clamp(zoom-e.deltaY*.001,.7,1.7)},{passive:false});
+// two-finger pinch. Without this a phone could orbit but never zoom.
+let pinch0=0,pinchZ0=1,pinchOn=false;
+const pts2=new Map();
+cv.addEventListener('pointerdown',e=>{
+ pts2.set(e.pointerId,[e.clientX,e.clientY]);
+ if(pts2.size===2){
+  const v=[...pts2.values()];
+  pinch0=Math.hypot(v[0][0]-v[1][0],v[0][1]-v[1][1])||1;
+  pinchZ0=zoom; pinchOn=true; pdown=false; clearTimeout(hold); pmoved=99;
+ }});
+cv.addEventListener('pointermove',e=>{
+ if(!pts2.has(e.pointerId))return;
+ pts2.set(e.pointerId,[e.clientX,e.clientY]);
+ if(pts2.size>=2&&pinchOn){
+  const v=[...pts2.values()];
+  const d=Math.hypot(v[0][0]-v[1][0],v[0][1]-v[1][1])||1;
+  zoom=clamp(pinchZ0*(d/pinch0),.6,2.2);
+ }});
+const rel2=e=>{pts2.delete(e.pointerId); if(pts2.size<2)pinchOn=false;};
+cv.addEventListener('pointerup',rel2);cv.addEventListener('pointercancel',rel2);
+cv.addEventListener('pointerleave',rel2);
+
+addEventListener('devicemotion',e=>{const a=e.accelerationIncludingGravity;if(!a)return;if(Math.hypot(a.x||0,a.y||0,a.z||0)>26&&T-lastShake>1.2){lastShake=T;shake(1)}});
+$('#bs').onclick=()=>shake(1);
+/* ---------- wish: snowflakes spell your words, facing the camera ---------- */
+const WZ=.78;let wishEnd=0,wishTxt='',wishCov=null,wishHalo=null,wishRand=null,wishT0=0,wishDims='';
+let wishBox=null;const wishList=[];
+function releaseWish(){wishEnd=0;wishTxt='';wishCov=null;wishBox=null;wishList.length=0}
+// the wish is rasterised straight into the character grid, so every letter is solid and readable
+function layoutWish(){
+ wishDims=cols+'x'+rows;
+ const S=3,ow=cols*S,oh=rows*S,c=document.createElement('canvas');c.width=ow;c.height=oh;const g=c.getContext('2d');
+ const fam='ui-monospace,Menlo,Consolas,sans-serif';g.font=`bold 100px ${fam}`;
+ // wrap against the real measured width, breaking only between words —
+ // the old version estimated, split, then re-joined and corrupted words
+ const maxLines=3, maxW=ow*((cols-2)/cols), lines=[];let cur='';
+ for(const w of wishTxt.split(/\s+/).filter(Boolean)){
+  const test=cur?cur+' '+w:w;
+  if(g.measureText(test).width<=maxW||!cur)cur=test;
+  else{lines.push(cur);cur=w}
+ }
+ if(cur)lines.push(cur);
+ // too many words for three lines: fold the tail into the last line
+ while(lines.length>maxLines){const tail=lines.pop();lines[lines.length-1]+=' '+tail}
+ const mw=Math.max(...lines.map(l=>g.measureText(l).width),1);
+ const fz=Math.min(100*ow*.88/mw,rows*.30*S*1.8/(1.15*lines.length));
+ g.font=`bold ${fz.toFixed(1)}px ${fam}`;g.fillStyle='#fff';g.textAlign='center';g.textBaseline='middle';
+ g.setTransform(1,0,0,1/1.8,0,0);
+ // place the block by its measured height: top edge clears the HUD band,
+ // bottom edge never sinks into the globe
+ const lh=fz*1.15, bh=lh*(lines.length-1);
+ // The dome's empty upper half is the only room above the tree, so the wish
+ // sits there (measured from the globe's real projected top), clearing the star.
+ const gTop=cyPx+fitFT*bs, starPx=gTop+bs*1.02;
+ const topLimit=Math.max(46,(topPad||Hh*.10)+2, gTop+cellH*.9);
+ const botLimit=Math.max(topLimit+2,starPx-bh-cellH*.6);
+ let yc=topLimit+bh/2;
+ if(yc+bh/2>botLimit)yc=botLimit-bh/2;          // keep off the star...
+ if(yc-bh/2<topLimit)yc=topLimit+bh/2;          // ...but never off the top
+ lines.forEach((l,i)=>g.fillText(l,ow/2,yc+(i-(lines.length-1)/2)*lh));
+ const d=g.getImageData(0,0,ow,oh).data,N=cols*rows;wishCov=new Float32Array(N);wishHalo=new Uint8Array(N);wishRand=new Float32Array(N);
+ for(let r=0;r<rows;r++)for(let c2=0;c2<cols;c2++){let a=0;for(let y=0;y<S;y++)for(let x=0;x<S;x++)a+=d[((r*S+y)*ow+c2*S+x)*4+3];const v=a/(9*255),i=r*cols+c2;wishCov[i]=v>.3?v:0;wishRand[i]=Math.random()}
+ // remember which rows the letters occupy, so the veil is exactly that tall
+ wishBox=null;
+ for(let r=0;r<rows;r++){for(let c2=0;c2<cols;c2++){
+   if(wishCov[r*cols+c2]>0){if(!wishBox)wishBox={y0:r,y1:r};else if(r>wishBox.y1)wishBox.y1=r;}}}
+ for(let r=1;r<rows-1;r++)for(let c2=1;c2<cols-1;c2++){const i=r*cols+c2;if(wishCov[i]){for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++)wishHalo[i+dy*cols+dx]=1}}
+}
+function makeWish(txt){
+ wishTxt=(txt||'').trim()||'happy holidays';wishT0=T;wishEnd=T+14;layoutWish();$('#hint').classList.add('off');
+ wishStar={t0:T,dur:.85,x0:cols*.22,y0:Math.max(2,(cyPx/cellH)-bs*1.45),x1:cols*.78,y1:Math.max(4,(cyPx/cellH)-bs*.95),burst:false};
+}
+const wp=$('#wish'),wi=$('#wi');
+let lastWish='',lastSend=0;
+function closeWishBar(){wp.style.display='none';try{wi.blur()}catch(_){}}
+function sendWish(){
+  const nowMs=performance.now();
+  if(nowMs-lastSend<450)return;      // one gesture, one wish
+  lastSend=nowMs;
+  const raw=(wi.value||'').trim();
+  // an empty field still sends the house wish, so the button is never a no-op
+  lastWish=raw||'happy holidays';
+  try{makeWish(lastWish)}catch(err){
+    // never fail silently: if layout throws, say so instead of doing nothing
+    const hint=$('#hint');hint.textContent='could not place that wish — try a shorter one';
+    hint.classList.remove('off');return;
+  }
+  closeWishBar();
+  // commit only after the wish is on screen
+  wi.value='';
+}
+$('#bw').onclick=()=>{
+  const open=wp.style.display==='flex';
+  wp.style.display=open?'none':'flex';
+  $('#hint').classList.add('off');
+  if(!open){wi.focus();wi.select()}
+};
+// tapping the canvas must not pull focus out of the wish field mid-sentence
+wp.addEventListener('pointerdown',e=>e.stopPropagation());
+const wg=$('#wg');
+wg.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();sendWish()});
+wg.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();sendWish()});
+wi.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();sendWish()}});
+// focus leaving the field is not a send, but it must never leave the bar stuck
+wi.addEventListener('blur',()=>{ /* keep the bar open so typed text is not lost */ });
+$('#bg').onclick=()=>{ri=(ri+1)%RN.length;RA=RAMPS[RN[ri]];$('#bg').textContent='glyphs · '+RN[ri]};
+$('#bm').onclick=()=>{mi=(mi+1)%MOODS.length;M=MOODS[mi];$('#bm').textContent='mood · '+M.n};
+
+// sound on/off. Starts on, and remembers the choice across reloads.
+let sndOn=true;
+try{sndOn=localStorage.getItem('frostglobe.sound')!=='off'}catch(e){}
+function paintSnd(){const b=$('#bsnd');if(!b)return;
+ b.textContent='sound · '+(sndOn?'on':'off');b.setAttribute('aria-pressed',String(sndOn));
+ b.setAttribute('aria-label','sound, currently '+(sndOn?'on':'off'))}
+function setSnd(v){
+ sndOn=v;sfx.on=v;
+ try{localStorage.setItem('frostglobe.sound',v?'on':'off')}catch(e){}
+ if(v){ambientStart()}else{ambientStop();clearTimeout(ambTimer)}
+ paintSnd();
+}
+$('#bsnd').onclick=()=>setSnd(!sndOn);
+
+$('#bpo').onclick=async()=>{
+ const r=await window.__fg.poster();
+ if(r&&r.ok)flash('poster saved');
+ else flash('could not save the image here',3200);
+};
+$('#bsh').onclick=()=>{
+ if(window.__seedMsg){                       // a received globe: replay the message
+  makeWish(window.__seedMsg);wishEnd=T+26;
+  return;
+ }
+ // first time, ask who it's from -- the recipient sees this name
+ let from=window.__from;
+ if(!from){
+  from=(prompt('Send this globe as... (your name)')||'').trim().slice(0,24);
+  if(from===null)return;                 // cancelled
+  from=from||'a friend';window.__from=from;
+ }
+ const r=window.__fg.share();
+ flash('sent as '+from);
+};
+paintSnd();
+setTimeout(()=>$('#hint').classList.add('off'),9000);
+
+// On phones the soft keyboard covers the bottom of the page and can bury the
+// send button, so lift the wish bar to sit on top of the keyboard.
+(function(){
+ const vv=window.visualViewport; if(!vv)return;
+ const place=()=>{
+  const kb=Math.max(0,(window.innerHeight-vv.height-vv.offsetTop));
+  wp.style.bottom=`calc(${100+kb}px + env(safe-area-inset-bottom,0px))`;
+ };
+ vv.addEventListener('resize',place);vv.addEventListener('scroll',place);place();
+})();
+
+/* ---------- snow physics ---------- */
+// Gentle weather. One slow wind that swells and fades over ~20s, with a little
+// turbulence on top so it never feels mechanical. The ceiling on gust strength
+// is deliberately low: snow should drift, not storm.
+let windPhase=0,windNow=0,windPrev=0;
+const WIND_DIR=.7;   // constant bearing, so gusts always sweep the same way
+function updateWind(dt){
+ windPrev=windNow;
+ windPhase+=dt;
+ // two slow oscillators at incommensurate rates => gusts that never repeat
+ const g=.5+.5*Math.sin(windPhase*.38)*Math.cos(windPhase*.17+1.7);
+ windNow=Math.max(0,g-.42)/.58;         // long calm stretches, brief swells
+}
+function stepSnow(dt){
+ const k=Math.min(1,1.2*dt);
+ for(const s of snow){
+  if(s.hasT){const y2=s.ty*cp+WZ*sp,r1=-s.ty*sp+WZ*cp,tx=s.tx*ca+r1*sa,tz=-s.tx*sa+r1*ca,ty=y2+CY;
+   s.vx+=((tx-s.x)*22-s.vx*6)*dt;s.vy+=((ty-s.y)*22-s.vy*6)*dt;s.vz+=((tz-s.z)*22-s.vz*6)*dt}
+  else{
+   // still air drifts each flake on its own; wind adds a shared sideways push
+   const gust=windNow*.42;
+   const wx=Math.cos(WIND_DIR)*gust, wz=Math.sin(WIND_DIR)*gust;
+   s.vx+=(Math.sin(T*.7+s.ph)*.06+wx-s.vx)*k;
+   s.vz+=(Math.cos(T*.6+s.ph)*.06+wz-s.vz)*k;
+   s.vy+=(-.2*s.sp-s.vy)*k;
+  }
+  if(pin){P(s.x,s.y,s.z);const dx=gx*cellW-mx,dy=gy*cellH-my,d=Math.hypot(dx,dy);
+   if(d<130&&d>.5){const f=Math.pow(1-d/130,2),ix=pvx*.5*f-dy/d*170*f,iy=pvy*.5*f+dx/d*170*f;
+    const rx=ix/(cellW*bs*1.8*gp),ry=-iy/(cellH*bs*gp),g=dt*1.6;
+    s.vx+=rx*ca*g;s.vz+=-rx*sa*g;s.vy+=ry*g}}
+  const sv=Math.hypot(s.vx,s.vy,s.vz);if(sv>3.2){s.vx*=3.2/sv;s.vy*=3.2/sv;s.vz*=3.2/sv}
+  s.x+=s.vx*dt;s.y+=s.vy*dt;s.z+=s.vz*dt;
+  if(s.hasT)continue;
+  const dy=s.y-CY,d=Math.hypot(s.x,dy,s.z)||1e-6;
+  const wall=DR*.93;
+  if(d>wall){
+   const nx=s.x/d,ny=dy/d,nz=s.z/d;
+   const vn=s.vx*nx+s.vy*ny+s.vz*nz;
+   // Reflect properly. The old code scaled velocity by -0.3 and re-projected
+   // onto the sphere every frame, which pinned flakes to the glass: they slid
+   // along the silhouette and never fell far enough to respawn.
+   if(vn>0){s.vx-=1.45*vn*nx;s.vy-=1.45*vn*ny;s.vz-=1.45*vn*nz}
+   s.vy-=.25*dt;                                  // and roll back down the curve
+   if(d>wall){const q=wall/d;s.x*=q;s.y=CY+dy*q;s.z*=q}
+  }
+  s.age=(s.age||0)+dt;
+  if((s.y<.03||s.age>24)&&T>3.2){spawn(s,true);s.age=0}}
+}
+
+
+// snowy ground
+for(let i=0;i<=30;i++){const rd=i/30*1.02,n=Math.max(1,Math.floor(rd*46));for(let j=0;j<n;j++){const a=j/n*TAU+i*.3;add(rd*Math.cos(a),.03*Math.sin(rd*9+a*2)+.05*Math.exp(-rd*rd*3),rd*Math.sin(a),0,1,0,.86,.91,1,SNOW,rd*5,.2)}}
+// wooden plinth
+for(let i=0;i<100;i++){const a=i/100*TAU,c=Math.cos(a),s=Math.sin(a);for(let h=0;h<7;h++){const bk=.75+.25*Math.sin(h*5+a*6);add(1.12*c,-h*.028,1.12*s,c,0,s,.72*bk,.48*bk,.28*bk,WOOD,0,.1)}for(let rd=1.02;rd<1.13;rd+=.03)add(rd*c,0,rd*s,0,1,0,.76,.52,.32,WOOD,0,.1)}
+// trunk
+for(let h=0;h<18;h++)for(let j=0;j<22;j++){const a=j/22*TAU;add(.07*Math.cos(a),.02+h*.012,.07*Math.sin(a),Math.cos(a),0,Math.sin(a),.42,.26,.14,WOOD,0,.1)}
+// needles: drooping whorls
+for(let i=0;i<16;i++){const f=i/15,y=.14+f*(H-.2),R=.62*Math.pow(1-f,1.05)+.04,nb=Math.floor(7+8*(1-f));
+ for(let b=0;b<nb;b++){const a=TAU*b/nb+i*2.4+gauss()*.08,L=R*(.85+rnd()*.25),n=Math.floor(35+120*L),ca=Math.cos(a),sa=Math.sin(a);
+  for(let k=0;k<n;k++){const s=Math.pow(rnd(),.65),sp=(.03+.1*s)*gauss(),sl=s*L,yy=y+.07*sl-.2*sl*sl+.02*gauss(),ao=.35+.65*s,tone=ao*(.75+rnd()*.35);
+   const px=ca*sl-sa*sp,pz=sa*sl+ca*sp;
+   if(s>.5&&rnd()<.06)add(px,yy+.01,pz,0,1,0,.92,.95,1,SNOW,0,.3);
+   else add(px,yy,pz,ca*.7+gauss()*.2,.6+gauss()*.2,sa*.7+gauss()*.2,(.05+.2*tone)*ao,(.28+.58*tone)*ao,(.12+.26*tone)*ao,NEEDLE,0,.08)}
+  const tl=L*.94;tips.push({x:ca*tl,y:y+.07*tl-.2*tl*tl,z:sa*tl,f})}}
+// ornaments + fairy lights
+const BALLS=[[.95,.16,.2],[.2,.5,1],[1,.8,.15]];
+tips.forEach((t,i)=>{if(t.f>.92)return;
+ if(i%5===2){const c=BALLS[(i/5|0)%3];for(let s=0;s<22;s++){const y=1-2*(s+.5)/22,r=Math.sqrt(1-y*y),th=2.4*s,nx=r*Math.cos(th),nz=r*Math.sin(th);add(t.x*.96+nx*.04,t.y-.03+y*.04,t.z*.96+nz*.04,nx,y,nz,c[0],c[1],c[2],BALL,i,1)}}
+ else if(i%3===0)add(t.x*1.02,t.y+.01,t.z*1.02,t.x,.4,t.z,1,1,1,LIGHT,i*.73,1,i)});
+// star
+for(let s=0;s<160;s++){const a=s/160*TAU,m=Math.cos(5*a),rm=.1*(.46+.54*Math.pow(Math.max(0,m),1.4)+.1*Math.abs(m)),rd=rm*Math.sqrt(rnd()),x=rd*Math.sin(a),y=H+.1+rd*Math.cos(a),z=(rnd()-.5)*.03;add(x,y,z,0,.3,1,1,.93,.45,STAR,s*.08,1);add(z,y,x,1,.3,0,1,.9,.4,STAR,s*.08,1)}
+// glass dome shell
+for(let i=0;i<1100;i++){const y=1-2*(i+.5)/1100,r=Math.sqrt(1-y*y),th=2.39996*i,x=r*Math.cos(th),z=r*Math.sin(th);if(CY+y*DR>.02)dome.push({x:x*DR,y:CY+y*DR,z:z*DR,nx:x,ny:y,nz:z})}
+// snowflakes
+const snow=[];
+function spawn(s,top){
+ // Born inside the glass, not in a flat disc above it: the old rule put flakes
+ // at y 1.6-1.75 with radius up to 1.34 while the dome is only 1.12 wide, so
+ // the first flakes of every respawn floated outside the globe.
+ // Enter through the ceiling of the glass. A disc at y~1.0 is only halfway up
+ // the dome, which is why snow looked like it appeared out of the middle.
+ if(top){const yy=1.46+rnd()*.18; const rr=Math.sqrt(Math.max(0,1-((yy-CY)/DR)**2))*.86;
+  const a=rnd()*TAU; s.x=rr*Math.cos(a);s.z=rr*Math.sin(a);s.y=yy}
+ else{let x,y,z;for(let k=0;k<12;k++){y=.05+rnd()*1.5;const rr=Math.sqrt(Math.max(0,1-((y-CY)/DR)**2))*.92;const a=rnd()*TAU,rd=Math.sqrt(rnd())*rr;x=rd*Math.cos(a);z=rd*Math.sin(a);break}
+  s.x=x;s.y=y;s.z=z}
+ s.vx=s.vy=s.vz=0}
+for(let i=0;i<520;i++){
+ const s={ph:rnd()*TAU,sp:.6+rnd()*.5};
+ spawn(s,false);
+ // stagger the population so snow builds up over the first few seconds
+ s.delay=i/520*2.4;
+ snow.push(s);}
+
+/* ---------- state ---------- */
+/* ---------- render ---------- */
+const LD=(()=>{const l=Math.hypot(.45,.75,.5);return[.45/l,.75/l,.5/l]})();
+let last=performance.now(),hudT=0,nLetters=0,nLights=0;
+const glyphBuckets=Object.create(null);
+const stars=Array.from({length:70},()=>({x:rnd(),y:rnd()*.85,ph:rnd()*TAU,sp:1.2+rnd()*2.2,a:.25+rnd()*.45,g:rnd()<.12?'*':'.'}));
+
+const glowSprites=Object.create(null);
+// ~42 lights each rebuilt a radial gradient every frame. Bake each
+// (kind,colour,radius) once into a small canvas and blit it instead.
+function glowSprite(kind,col,rad){const key=kind+'|'+col+'|'+(rad|0);let c=glowSprites[key];
+ if(c)return c;
+ const s=Math.max(6,Math.ceil(rad)*2);c=document.createElement('canvas');c.width=c.height=s;
+ const g=c.getContext('2d'),gr=g.createRadialGradient(s/2,s/2,0,s/2,s/2,s/2);
+ if(kind===2){gr.addColorStop(0,'rgba(254,240,138,.4)');gr.addColorStop(1,'rgba(250,204,21,0)')}
+ else{const m=/rgb\((\d+),(\d+),(\d+)\)/.exec(col)||[0,255,255,255];
+  gr.addColorStop(0,`rgba(${m[1]},${m[2]},${m[3]},.34)`);gr.addColorStop(1,`rgba(${m[1]},${m[2]},${m[3]},0)`)}
+ g.fillStyle=gr;g.fillRect(0,0,s,s);glowSprites[key]=c;return c}
+
+// the globe lives between the HUD and the hint; read those boxes so the
+// framing adapts to whatever the real chrome ends up being
+let padFrame=-1,padTop=0,padBot=0,frameN=0,nextOrn=6;
+function measPad(){if(padFrame===frameN)return true;padFrame=frameN;
+ const hi=$('#hint'),bar=$('#bar');if(!hi||!bar)return false;
+ const rh=rect.top||0;
+ const ir=hi.getBoundingClientRect(),br=bar.getBoundingClientRect();
+ if(!ir.height||!br.height)return false;
+ // Measure only the title block: the message line is an overlay and must never
+ // shift the globe underneath it, and the stats line now lives at the bottom.
+ const h0b=document.getElementById('h0');
+ hudFixedBottom=h0b?h0b.getBoundingClientRect().bottom:0;
+ topPad=Math.max(56,hudFixedBottom-rh+26);
+ botPad=Math.max(topPad+220, Math.min(ir.top,br.top)-rh-16);
+ return botPad-topPad>180}
+
+// Size the globe by *measuring* its projected footprint instead of guessing
+// constants: perspective magnification made every hand-derived divisor wrong,
+// which is how a 1512px window ended up with a 375px globe. Cached per layout.
+let fitKey='',fitVal=1,fitFT=0,fitFB=0;
+let hudFixedBottom=0;
+function fitGlobe(){
+ const roomH=Math.min(botPad-topPad,Hh*.78), roomW=Math.min(W*0.90,Math.max(W*0.52,1040));
+ const key=[W|0,Hh|0,topPad|0,botPad|0,cellW,cellH].join(',');
+ if(key===fitKey)return fitVal;
+ let b=Math.min(roomH/(3.2*cellH),roomW/(3.5*cellW));
+ // measure the WHOLE scene (tree, plinth, star, dome) -- fitting only the dome
+ // under-reported the footprint by ~19% and let the plinth run into the hint.
+ for(let it=0;it<6;it++){
+  let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;
+  for(const arr of [pts,dome])for(const q of arr){
+   const rx=q.x*ca-q.z*sa,r1=q.x*sa+q.z*ca,ry=(q.y-CY)*cp-r1*sp,rz=(q.y-CY)*sp+r1*cp;
+   const gp2=CAM/(CAM-rz);           // perspective: nearer points project larger
+   const px=rx*b*1.8*cellW*gp2,py=-ry*b*cellH*gp2;
+   if(px<x0)x0=px;if(px>x1)x1=px;if(py<y0)y0=py;if(py>y1)y1=py}
+  const gw=x1-x0,gh=y1-y0;
+  if(!(gw>0&&gh>0))break;
+  b*=Math.min(roomW/gw,roomH/gh)*.995;
+  fitFT=y0/b;fitFB=y1/b;   // globe top/bottom as an offset per unit of b
+ }
+ fitKey=key;fitVal=b;return b}
+
+function frame(now){
+ frameN++;
+ const dt=Math.min(.05,Math.max(.001,(now-last)/1e3));last=now;T+=dt;
+ if(!pdown){yawV*=1-Math.min(1,2.2*dt);yaw+=(REDUCED?0:.28+yawV)*dt}
+ pvx*=1-Math.min(1,6*dt);pvy*=1-Math.min(1,6*dt);
+ ca=Math.cos(yaw);sa=Math.sin(yaw);cp=Math.cos(pitch);sp=Math.sin(pitch);
+ // Keep the globe clear of the real UI, measured rather than assumed, and size
+ // it to the *screen*. Sizing off cols/rows alone pinned the globe at ~375px on
+ // every display, so in a wide Chrome window it shrank to an ornament in a void.
+ if(!measPad()){topPad=Hh*.10;botPad=Hh*.36}
+ useFrac=Math.max(.35,(botPad-topPad)/Hh);
+ cyPx=(topPad+botPad)*.5;
+ bs=fitGlobe()*zoom;
+ // music energy for this frame, read off the audio clock
+ let beat=0;
+ if(amb.on&&AC&&AC.state==='running'){const bt=AC.currentTime-(AC.outputLatency||AC.baseLatency||0);beat=beatEnergy(bt)}
+ if(T>2){updateWind(dt);stepSnow(dt)}
+ // the tree decorates itself every so often, so time alone grows the globe
+ if(T>nextOrn){nextOrn=T+7+rnd()*6;addOrnament()}
+ if(SEED&&SEED.wish&&!window.__seedWishDone&&T>2.6){
+  window.__seedWishDone=1;window.__seedMsg=SEED.wish;makeWish(SEED.wish);
+  wishEnd=T+26;                                  // a gift message lingers
+  const h2=document.getElementById('h2');
+  if(h2){h2.textContent='\u201c'+SEED.wish+'\u201d';h2.hidden=false}
+  const h1=document.getElementById('h1'),h0=document.getElementById('h0');
+  if(h1)h1.classList.add('from');     // sender + count read at full contrast
+  if(h0&&SEED.from)h0.textContent='a globe for you';
+  const bs=document.getElementById('bsh');
+  if(bs&&SEED.wish){bs.textContent='read again';bs.setAttribute('aria-label','show the message again')}
+  if(SEED.from)flash('a globe from '+SEED.from,4200);
+ }
+ if(wishEnd&&T>wishEnd)releaseWish();
+ // re-place the wish once the globe framing is known, and whenever it moves
+ if(wishTxt){
+  const sig=cols+'x'+rows+':'+(bs|0)+':'+(cyPx|0);
+  if(wishDims!==sig){wishDims=sig;layoutWish();}
+ }
+ for(let i=ripples.length-1;i>=0;i--)if(T-ripples[i].t>1.8)ripples.splice(i,1);
+ for(let i=sparks.length-1;i>=0;i--)if(T-sparks[i].t>sparks[i].life)sparks.splice(i,1);
+ if(wishStar){
+  const u=(T-wishStar.t0)/wishStar.dur;
+  if(u>=1&&!wishStar.burst){
+   wishStar.burst=true;
+   for(let k=0;k<18;k++){
+    const a=k/18*TAU,sp=10+Math.random()*14;
+    sparks.push({x:wishStar.x1,y:wishStar.y1,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp*.6,t:T,life:.55+Math.random()*.35});
+   }
+  }
+  if(u>1.15)wishStar=null;
+ }
+
+ zb.fill(-1e9);chb.fill(null);glb.fill(0);
+ ctx.fillStyle='#04060b';ctx.fillRect(0,0,W,Hh);
+ const fs=cellH*.95;ctx.font=`bold ${fs.toFixed(1)}px ui-monospace,Menlo,Consolas,monospace`;ctx.textBaseline='top';
+ for(const s of stars){ctx.fillStyle=`rgba(200,220,255,${(s.a*(.4+.6*Math.sin(T*s.sp+s.ph))).toFixed(2)})`;const z=s.g==='*'?2:1.2;ctx.fillRect(s.x*W,s.y*Hh,z,z)}
+
+ const L=RA.length,aur=M.aur,tn=M.tint;
+
+ const glowList=[];nLights=0;
+ const palCache=new Map();
+// The scene repaints from scratch every frame, so building a fresh rgb() string
+// for each of ~3k cells was pure garbage churn -- and near-unique colours made
+// colour batching useless (thousands of one-item buckets). Snap to 4 bits per
+// channel and reuse the string: invisible at 6px, a large win per frame.
+function colOf(r,g,b){const R=clamp(r*255|0,0,255)&0xF0,G=clamp(g*255|0,0,255)&0xF0,B=clamp(b*255|0,0,255)&0xF0,k=(R<<16)|(G<<8)|B;let s=palCache.get(k);if(s===undefined){s=`rgb(${R},${G},${B})`;palCache.set(k,s)}return s}
+function put(i,depth,glyph,r,g,b,gt){zb[i]=depth;chb[i]=glyph;cob[i]=colOf(r,g,b);glb[i]=gt;if(gt)glowList.push(i)}
+
+ // aurora: a faint ribbon drifting through the CLEAR air above the tree
+ // crown. Placing it lower put it behind dense falling snow, where a very
+ // faint green glow is invisible. Above the tree there is nothing to hide it.
+ if(T>3){
+  const aT=T*.12;
+  for(let band=0;band<2;band++){
+   const off=band*1.7;
+   for(let u=0;u<=26;u++){
+    const uu=u/26;
+    const ax=(uu-.5)*1.30;
+    const ay=.86+.055*Math.sin(uu*3.4+aT+off)+.022*Math.sin(uu*8.1-aT*1.5+off);
+    const az=.55-.30*Math.abs(uu-.5)*2;
+    P(ax,ay+CY-1,az);
+    if(gx<0||gx>=cols||gy<0||gy>=rows)continue;
+    const i=gy*cols+gx;
+    if(chb[i]!==null)continue;   // never overwrite anything solid
+    const edge=Math.sin(uu*Math.PI);
+    // swells with the gusts, so the aurora and the drifting snow move as one
+    const a=(.72+1.05*windNow)*edge*edge*(.72+.28*Math.sin(T*.9+uu*4.2+off));
+    if(a<.06)continue;
+    // pull this ribbon's colour from the mood, so pine/frost/ember each get
+    // their own sky instead of the same green every time
+    const mc=aur[band%aur.length];
+    const r=Math.round(mc[0]*a),g2=Math.round(mc[1]*a),b=Math.round(mc[2]*a);
+    chb[i]=a>.62?'≈':a>.34?'~':'-';
+    cob[i]=`rgb(${r},${g2},${b})`;
+    glb[i]=0;
+   }
+  }
+ }
+
+ // tree, ground, ornaments
+ for(let n=0;n<pts.length;n++){const p=pts[n];if(p.t0>T)continue;
+  P(p.x,p.y,p.z);if(gx<0||gx>=cols||gy<0||gy>=rows)continue;
+  const i=gy*cols+gx,depth=gz+((p.k===LIGHT||p.k===STAR)?.06:0);if(p.k===LIGHT)nLights++;if(depth<=zb[i])continue;
+  const rnx=p.nx*ca-p.nz*sa,r1=p.nx*sa+p.nz*ca,rny=p.ny*cp-r1*sp,rnz=p.ny*sp+r1*cp;
+  const nl=Math.max(0,rnx*LD[0]+rny*LD[1]+rnz*LD[2]),hx=LD[0],hy=LD[1],hz=LD[2]+1,hl=Math.hypot(hx,hy,hz),nh=Math.max(0,(rnx*hx+rny*hy+rnz*hz)/hl),spec=p.sh*Math.pow(nh,18);
+  const age=T-p.t0,ap=age<.25?age/.25:1;
+  let lum=(.3+.7*nl+spec*.8)*ap,boost=0;
+  const px=gx*cellW,py=gy*cellH;
+  if(ripples.length)for(const rr of ripples){
+   // the wave stays inside the glass: fall off with radial distance from the
+   // globe's centre so it dies before it can reach the rim
+   const ox=gx-rr.gcx,oy=(gy-rr.gcy)*1.8,domeR=Math.hypot(ox,oy)/(rr.grad||1e9);
+   if(domeR>1)continue;
+   const d=Math.hypot(px-rr.x,py-rr.y),q=(d-(T-rr.t)*300)/26;
+   if(q>-3&&q<3)boost+=Math.exp(-q*q)*(1-(T-rr.t)/1.8)*(1-domeR*domeR)}
+  if(pin){const dx=px-mx,dy=py-my,d2=dx*dx+dy*dy;
+   // a fixed 200px radius washed out a phone (where the tree is only ~170px
+   // tall) and was a speck on desktop. Tie it to the tree's on-screen size.
+   // still reads as a highlight, but a much gentler one: narrower core,
+   // lower peak, so hovering no longer looks like the tree is on fire
+   const GR=bs*cellH*0.62, G2=GR*GR;
+   if(d2<G2)lum+=.17*Math.exp(-d2/(G2*0.22))}
+  lum+=boost*.8;
+  let r=p.r*lum+boost*.35,g=p.g*lum+boost*.3,b=p.b*lum+boost*.15,gt=0,gl;
+  const li=Math.min(L-1,Math.max(1,Math.floor(lum*(L-1))));
+  switch(p.k){
+   case SNOW:gl=RA[li];break;
+   case WOOD:{const k2=.55,wl=Math.max(.62,lum);   // gentler than needles + ambient floor for base
+    gl=RA[Math.max(Math.floor(L*.12),li)];
+    r=p.r*(1+(tn[0]-1)*k2)*wl+boost*.3;g=p.g*(1+(tn[1]-1)*k2)*wl+boost*.25;b=p.b*(1+(tn[2]-1)*k2)*wl+boost*.12;break}
+   case NEEDLE:gl=RA[Math.min(L-2,Math.max(Math.floor(L*.12),li))];r=p.r*tn[0]*lum+boost*.35;g=p.g*tn[1]*lum+boost*.3;b=p.b*tn[2]*lum+boost*.15;break;
+   case BALL:if(spec>.36){gl='@';r+=.6;g+=.6;b+=.6;gt=3}else gl=RA[Math.max(Math.floor(L*.2),li)];break;
+   case LIGHT:{
+    // two things at once: each bulb breathes on its own phase, and the whole
+    // string lifts on the beat. Offsetting by p.ph means the tree twinkles
+    // rather than blinking as one block.
+    const ph2=beat>0?(p.ph*.6):0;
+    const pu=.4+.6*Math.sin(T*4.8+p.ph)+boost+beat*(.85+.5*Math.sin(p.ph*2.7+1.3));
+    const c=M.lt[p.ci%M.lt.length],bo=.7+.75*pu;
+    gl=pu>.72?'@':pu>.42?'$':'*';r=c[0]/255*bo;g=c[1]/255*bo;b=c[2]/255*bo;
+    if(pu>.52||beat>.5)gt=1;break}
+   case STAR:gl=Math.sin(T*6+p.ph)>.5?'#':'*';r=1;g=.8+beat*.15;b=.3+beat*.3;break}
+  put(i,depth,gl,r,g,b,gt)}
+
+ // growth: gifts sit on the snow where you tapped, ornaments on the branches.
+ // Both are ordinary scene points, so they rotate with the tree and get lighting.
+ for(const gr of growth.gifts){
+  const age=T-(gr.t0||0);if(age<0)continue;
+  const pop=clamp(age/.4,0,1), W2=.070, H2=.075*pop;
+  // Build the box from real vertical slices: a footprint on the snow, four
+  // upright walls, and a separate lid band. Drawn in that order so the walls
+  // overwrite the footprint and the lid reads as a lid.
+  const c=gr.c;
+  const cell=(x,z,hh,glyph,r,g,b)=>{
+   P(x,.03+hh,z);
+   if(gx<0||gx>=cols||gy<0||gy>=rows)return;
+   const i=gy*cols+gx,d=gz+.05;if(d<=zb[i])return;
+   zb[i]=d;chb[i]=glyph;cob[i]=colOf(r,g,b);glb[i]=0;
+  };
+  const LAY=6;
+  for(let l=0;l<LAY;l++){
+   const t=l/(LAY-1);                 // 0 = on the snow, 1 = lid
+   const shrink=1-t*.10;              // slight taper, reads as a box in perspective
+   const hh=t*H2;
+   // front and back walls
+   for(let f=-1;f<=1;f+=2){
+    for(let u=-1;u<=1.001;u+=.5){
+     const x=gr.x+u*W2*shrink, z=gr.z+f*W2*.92*shrink;
+     const rib=(Math.abs(u)<.26);
+     if(rib)cell(x,z,hh,'|',.98,.95,.88);
+     else cell(x,z,hh,'#',c[0]*(.55+.35*f*.5+.1*t),c[1]*(.55+.35*f*.5+.1*t),c[2]*(.55+.35*f*.5+.1*t));
+    }}
+   // side walls
+   for(let f=-1;f<=1;f+=2){
+    for(let u=-1;u<=1.001;u+=.5){
+     const x=gr.x+f*W2*shrink, z=gr.z+u*W2*.92*shrink;
+     const rib=(Math.abs(u)<.26);
+     if(rib)cell(x,z,hh,'|',.80,.78,.72);
+     else cell(x,z,hh,'#',c[0]*.42,c[1]*.42,c[2]*.42);
+    }}
+  }
+  // the lid: a flat cap, brighter than the walls
+  for(let zz=-2;zz<=2;zz++)for(let xx=-2;xx<=2;xx++){
+   const x=gr.x+xx/2*W2*.95, z=gr.z+zz/2*W2*.88;
+   const rib=(xx===0);
+   if(rib)cell(x,z,H2+.004,'+',1,.98,.92);
+   else cell(x,z,H2+.004,'=',Math.min(1,c[0]*1.05),Math.min(1,c[1]*1.05),Math.min(1,c[2]*1.05));
+  }
+  // the knot: one pale cell, and nothing else
+  cell(gr.x,gr.z,H2+.016,'*',.95,.93,.88);
+ }
+ for(const orn of growth.orns){
+  const age=T-(orn.t0||0);if(age<0)continue;
+  const pop=age<.5?clamp(age/.5,0,1):1;
+  // the string it hangs from
+  for(let k=1;k<=3;k++){P(orn.x,orn.y+.022*k*pop,orn.z);
+   if(gx>=0&&gx<cols&&gy>=0&&gy<rows){const i=gy*cols+gx;if(gz+.03>zb[i]){zb[i]=gz+.03;chb[i]='\'';cob[i]='rgb(96,112,128)';glb[i]=0}}}
+  for(let n=0;n<12;n++){
+   const th=n/12*TAU, yy=Math.sin(n*1.9)*.6, rr=.05*pop*Math.max(.25,Math.cos(n*1.9));
+   P(orn.x+rr*Math.cos(th),orn.y+yy*.05*pop,orn.z+rr*Math.sin(th));
+   if(gx<0||gx>=cols||gy<0||gy>=rows)continue;
+   const i=gy*cols+gx,depth=gz+.04;if(depth<=zb[i])continue;
+   put(i,depth,pop>.55?'o':'*',orn.c[0],orn.c[1],orn.c[2],pop>.85?3:0)}}
+
+ // snowflakes
+ // snow arrives gradually: the population fills in, and each flake fades up
+ const snowT=T-2, snowOn=snowT>0, snowFill=snowT>0?clamp(snowT/3.4,0,1):0;
+ if(snowOn)for(let si=0;si<snow.length;si++){
+  const s=snow[si];
+  if(si/snow.length>snowFill&&!s.hasT)continue;      // still falling into the globe
+  P(s.x,s.y,s.z);if(gx<0||gx>=cols||gy<0||gy>=rows)continue;
+  const i=gy*cols+gx,d=gz+(s.hasT?.25:.04);if(d<=zb[i])continue;
+  const born=clamp((snowT-si/snow.length*2.4)/1.2,0,1);  // fade in from nothing
+  if(born<=0.02)continue;
+  if(s.hasT){const tw=(.75+.25*Math.sin(T*5+s.ph))*born;put(i,d,tw>.9?'@':'*',tw,.86*tw,.5*tw,0);continue}
+  const near=clamp((gz+1.3)/2.6,0,1)*born;put(i,d,near>.55?'*':'.',.8+.2*near,.88+.12*near,born,0)}
+
+ // glass dome rim (only where nothing solid is drawn)
+ for(const q of dome){P(q.x,q.y,q.z);if(gx<0||gx>=cols||gy<0||gy>=rows)continue;const i=gy*cols+gx;
+  const rnx=q.nx*ca-q.nz*sa,r1=q.nx*sa+q.nz*ca,rny=q.ny*cp-r1*sp,rnz=q.ny*sp+r1*cp,rim=1-Math.abs(rnz),hl=rnx*LD[0]+rny*LD[1]+rnz*LD[2];
+  if(hl>.94){chb[i]='*';cob[i]='rgb(235,245,255)';continue}
+  if(rim<.55)continue;const f=(rim-.4)*.9;chb[i]=rim>.88?'O':rim>.72?'o':'.';cob[i]=`rgb(${120*f|0},${175*f|0},${235*f|0})`}
+
+ // the wish lives on its own layer, drawn after the veil. Nothing in the
+ // scene is ever deleted — that deletion is what used to punch a black disc.
+ wishList.length=0;
+ if(wishCov){const tt=T-wishT0,left=wishEnd-T,fade=left<1.5?clamp(left/1.5,0,1):1,N=wishCov.length;
+  for(let i=0;i<N;i++){const cov=wishCov[i];if(!cov)continue;
+   if(wishRand[i]>tt*.9||wishRand[i]>fade)continue;
+   const tw=.85+.15*Math.sin(T*4+i),spk=((i*7+(T*6|0))%23)===0;
+   wishList.push(i,clamp(Math.floor(WISH_RA.length*(.58+.42*cov)),1,WISH_RA.length-1),
+                 spk?'rgb(255,255,255)':`rgb(255,${225*tw|0},${150*tw|0})`)}};
+
+ // bloom for lights / star / specular balls
+ ctx.save();ctx.globalCompositeOperation='lighter';
+ for(const i of glowList){const gt=glb[i];if(!gt)continue;glb[i]=0;const x=(i%cols+.5)*cellW,y=(Math.floor(i/cols)+.5)*cellH,rad=gt===2?cellH*3.2:gt===1?cellH*1.7:cellH*1.1;
+  const sp=glowSprite(gt,cob[i],rad);
+  ctx.drawImage(sp,x-rad,y-rad,rad*2,rad*2)}
+ if(T>1.8){P(0,H+.1,0);const sx=(gx+.5)*cellW,sy=(gy+.5)*cellH,sr=cellH*2.4,pu=.8+.2*Math.sin(T*3),sg=ctx.createRadialGradient(sx,sy,0,sx,sy,sr);sg.addColorStop(0,`rgba(255,210,110,${(.16*pu).toFixed(3)})`);sg.addColorStop(1,'rgba(255,210,110,0)');ctx.fillStyle=sg;ctx.fillRect(sx-sr,sy-sr,sr*2,sr*2)}
+ ctx.restore();
+
+ // crisp glyphs
+ nLetters=0;
+  // batch glyphs by colour: one fillStyle change per colour instead of per cell.
+ // The scene is animated, so nearly every cell changes — but the *colour* set is
+ // small, and fillStyle churn dominates a character-grid repaint.
+ let nL=0;
+ const buckets=glyphBuckets;
+ for(const k in buckets)buckets[k].length=0;
+ for(let i=0,l=cols*rows;i<l;i++){
+  const ch=chb[i]; if(ch===null)continue;
+  nL++;
+  const s2=cob[i];
+  (buckets[s2]||(buckets[s2]=[])).push(i);
+ }
+ for(const s2 in buckets){
+  const arr=buckets[s2]; if(!arr.length)continue;
+  ctx.fillStyle=s2;
+  for(let k=0;k<arr.length;k++){
+   const i=arr[k];
+   ctx.fillText(chb[i],(i%cols)*cellW,((i/cols)|0)*cellH);
+  }
+ }
+ nLetters=nL;
+
+ // a soft band under the pill gives the letters air without erasing the globe
+ if(wishBox&&wishCov){const left=wishEnd-T,fade=left<1.2?clamp(left/1.2,0,1):1,inn=clamp((T-wishT0)/.2,0,1);
+  if(fade>.02&&inn>.02){
+   const y0=wishBox.y0*cellH,y1=wishBox.y1*cellH;
+   const cyb=(y0+y1)/2;
+   // A band as wide as the text, with generous vertical falloff. Previously
+   // this was full width at .92 alpha, which sliced the tree in two.
+   let x0=1e9,x1=-1e9;
+   for(let r=wishBox.y0;r<=wishBox.y1;r++)for(let c2=0;c2<cols;c2++){
+     if(wishCov[r*cols+c2]>0){if(c2<x0)x0=c2;if(c2>x1)x1=c2}}
+   if(x1<x0){x0=0;x1=cols-1}
+   const px0=x0*cellW-cellW*3, px1=(x1+1)*cellW+cellW*3;
+   const pad=cellH*1.6, hh=(y1-y0)/2+pad;
+   const g2=ctx.createLinearGradient(0,cyb-hh,0,cyb+hh);
+   g2.addColorStop(0,'rgba(4,6,11,0)');
+   g2.addColorStop(.30,'rgba(4,6,11,.55)');
+   g2.addColorStop(.70,'rgba(4,6,11,.55)');
+   g2.addColorStop(1,'rgba(4,6,11,0)');
+   ctx.save();ctx.globalAlpha=fade*inn;ctx.fillStyle=g2;
+   // feather the left and right edges the same way
+   const gx=ctx.createLinearGradient(px0,0,px1,0);
+   ctx.fillRect(Math.max(0,px0),cyb-hh,Math.min(W,px1)-Math.max(0,px0),hh*2);
+   ctx.globalAlpha=fade*inn*.85;
+   ctx.fillRect(Math.max(0,px0-cellW*2),cyb-hh*.9,cellW*2,hh*1.8);
+   ctx.fillRect(Math.min(W,px1),cyb-hh*.9,cellW*2,hh*1.8);
+   ctx.restore()}}
+
+ // the wish itself, drawn last so the veil can never dim it
+ for(let k=0;k<wishList.length;k+=3){const i=wishList[k];
+  ctx.fillStyle=wishList[k+2];
+  ctx.fillText(WISH_RA[wishList[k+1]],(i%cols)*cellW,((i/cols)|0)*cellH)}
+
+ if(now-hudT>250){hudT=now;
+  $('#h1').textContent=window.__from
+    ? `from ${window.__from} · ${growth.gifts.length} gifts · rot ${(((yaw*180/Math.PI)%360)+360)%360|0}°`
+    : `rot ${(((yaw*180/Math.PI)%360)+360)%360|0}° · glyphs ${nLetters.toLocaleString()}`;}
+ requestAnimationFrame(frame)}
+requestAnimationFrame(frame);
+// read-only geometry hook (used by the layout harness; harmless in the browser)
+window.__fg={
+ bbox(){const bb={x0:1e9,x1:-1e9,y0:1e9,y1:-1e9},tb={x0:1e9,x1:-1e9,y0:1e9,y1:-1e9};
+  for(const q of pts){if(q.t0>T)continue;P(q.x,q.y,q.z);const px=gx*cellW,py=gy*cellH;
+    if(px<bb.x0)bb.x0=px;if(px>bb.x1)bb.x1=px;if(py<bb.y0)bb.y0=py;if(py>bb.y1)bb.y1=py;
+    if(px<tb.x0)tb.x0=px;if(px>tb.x1)tb.x1=px;if(py<tb.y0)tb.y0=py;if(py>tb.y1)tb.y1=py}
+  for(const q of dome){P(q.x,q.y,q.z);const px=gx*cellW,py=gy*cellH;
+    if(px<bb.x0)bb.x0=px;if(px>bb.x1)bb.x1=px;if(py<bb.y0)bb.y0=py;if(py>bb.y1)bb.y1=py}
+  return {W,Hh,cols,rows,cellW,cellH,bs,useFrac,
+    globe:{w:Math.round(bb.x1-bb.x0),h:Math.round(bb.y1-bb.y0),pcW:+((bb.x1-bb.x0)/W*100).toFixed(1),pcH:+((bb.y1-bb.y0)/Hh*100).toFixed(1)},
+    tree:{w:Math.round(tb.x1-tb.x0),h:Math.round(tb.y1-tb.y0),pcW:+((tb.x1-tb.x0)/W*100).toFixed(1),pcH:+((tb.y1-tb.y0)/Hh*100).toFixed(1)}}},
+ __worldAt:(x,y)=>worldAt(x,y),
+ get vars(){return {W,Hh,cols,rows,cellW,cellH,bs,useFrac,cyPx,topPad,botPad,padT:padBot-padTop,fitFT,fitFB,T:()=>T}},
+ sfxOff(){amb.on=false},
+ ambStart(){ambientStart()},
+ bedGain(v){if(sfx.ambGain)sfx.ambGain.gain.value=v},
+ testChime(g){const ac=AC;if(!ac)return 'no ac';chime(ac,sfx.ambGain,ac.currentTime+.02,440,1.0,g);return 'ok'},
+ waitBeat(above){return new Promise(res=>{const ac=AC;if(!ac){res(false);return}const t0=performance.now();const step=()=>{const e=beatEnergy(ac.currentTime);if(above?e>0.55:e<0.12){res(true);return}if(performance.now()-t0>3000){res(false);return}setTimeout(step,16)};step()})},
+ wind(){return windNow},
+ drift(){let st=0,n=0;for(const f of snow){if(!f.hasT){st+=Math.hypot(f.vx,f.vz);n++}}return {mean:+(st/Math.max(1,n)).toFixed(3),wind:+windNow.toFixed(2)}},
+    beatProbe(ms){return new Promise(res=>{const ac=AC;if(!ac){res([]);return}const out=[];const t0=performance.now();const step=()=>{out.push(+beatEnergy(ac.currentTime).toFixed(2));if(performance.now()-t0<ms)setTimeout(step,55);else res(out)};step()})},
+ ambDbg(){return {ambOn:amb.on,step:amb.step,next:amb.next,now:AC?AC.currentTime:0,paused:amb.pausedUntil,gain:sfx.ambGain?sfx.ambGain.gain.value:null,masterGain:sfx.master?sfx.master.gain.value:null}},
+ ambLevel(v){window.__ambLevel=v},
+ verbOff(){try{sfx.verb.disconnect()}catch(e){}},
+  meter(){
+  const ac=AC;if(!ac||!sfx.master)return null;
+  if(!window.__an){const an=ac.createAnalyser();an.fftSize=4096;sfx.master.connect(an);
+   window.__an=an;window.__buf=new Float32Array(an.fftSize)}
+  window.__an.getFloatTimeDomainData(window.__buf);
+  let s=0,p=0,n=window.__buf.length;
+  for(let i=0;i<n;i++){const v=window.__buf[i];s+=v*v;if(Math.abs(v)>p)p=Math.abs(v)}
+  const db=x=>+(20*Math.log10(Math.max(1e-9,x))).toFixed(1);
+  return {rms:db(Math.sqrt(s/n)),peak:db(p)};
+ },
+ meterFor(ms){   // sample repeatedly for a window, return the loudest
+  return new Promise(res=>{
+   const ac=AC;if(!ac||!sfx.master){res(null);return}
+   if(!window.__an){const an=ac.createAnalyser();an.fftSize=4096;sfx.master.connect(an);
+    window.__an=an;window.__buf=new Float32Array(an.fftSize)}
+   let peak=0,sumSq=0,n=0;
+   const t0=performance.now();
+   const step=()=>{
+    window.__an.getFloatTimeDomainData(window.__buf);
+    for(const v of window.__buf){const a=Math.abs(v);if(a>peak)peak=a;sumSq+=v*v;n++}
+    if(performance.now()-t0<ms)requestAnimationFrame(step);
+    else{const db=x=>+(20*Math.log10(Math.max(1e-9,x))).toFixed(1);
+      res({rms:db(Math.sqrt(sumSq/Math.max(1,n))),peak:db(peak),samples:n})}
+   };
+   step();
+  });
+ },
+ limOff(){try{window.__lim.threshold.value=-0.1}catch(e){}},
+ rebuildBus(){AC=null;honk=true;amb.on=false;amb.step=0;amb.next=0;sfx.master=null;sfx.ambGain=null;sfx.verb=null;window.__an=null;audio()},
+ bus(){return {hasBus:!!sfx.master,hasAmb:!!sfx.ambGain,ambGain:sfx.ambGain?sfx.ambGain.gain.value:null,level:AMB_LEVEL}},
+ posterASCII(){
+  // The renderer keeps its glyph grid; read it out verbatim. This is the frame
+  // you are looking at, not a re-render, so the poster always matches.
+  const lines=[];
+  for(let r=0;r<rows;r++){
+   let line='';
+   for(let c=0;c<cols;c++){
+    const gl=chb[r*cols+c];
+    line+=(gl===null||gl===undefined)?' ':gl;
+   }
+   lines.push(line.replace(/\s+$/,''));
+  }
+  while(lines.length&&!lines[0].trim())lines.shift();
+  while(lines.length&&!lines[lines.length-1].trim())lines.pop();
+  // crop the left/right padding too: the globe sits centred in a much wider
+  // grid, and 100+ leading spaces make the text wrap badly anywhere it is pasted
+  let lo=1e9,hi=-1;
+  for(const l of lines){const a=l.search(/\S/);const b=l.search(/\s*$/);
+   if(a>=0){if(a<lo)lo=a;if(b>hi)hi=b}}
+  const out=lo<=hi?lines.map(l=>l.slice(lo,hi)):lines;
+  return out.join('\n');
+ },
+ posterPNG(){
+  // A real poster, not a screenshot: crop to the globe, add a margin, and
+  // stamp the message and sender underneath. A raw canvas dump is mostly empty
+  // black and says nothing about who it came from.
+  const src=document.getElementById('c');
+  const bb=this.posterBox();
+  const pad=Math.max(40,cellH*5);
+  const x0=Math.max(0,(bb.x0||0)-pad), y0=Math.max(0,(bb.y0||0)-pad);
+  const x1=Math.min(W,(bb.x1||W)+pad), y1=Math.min(Hh,(bb.y1||Hh)+pad);
+  const cw=Math.max(1,x1-x0), ch=Math.max(1,y1-y0);
+  const capB=window.__seedMsg||wishTxt||lastWish||'';
+  const capF=window.__from||'';
+  const capH=(capB||capF)?Math.round(72*Math.max(1,Math.min(2,dpr))):0;
+  const out=document.createElement('canvas');
+  const k=Math.max(1,Math.min(2,dpr));
+  out.width=Math.round(cw*k); out.height=Math.round(ch*k)+capH;
+  const g=out.getContext('2d');
+  g.fillStyle='#04060b'; g.fillRect(0,0,out.width,out.height);
+  // the visible slice of the live canvas, at device resolution
+  g.drawImage(src, x0*dpr, y0*dpr, cw*dpr, ch*dpr, 0,0, cw*k, ch*k);
+  if(capH){
+   const cx=out.width/2;
+   g.textAlign='center'; g.textBaseline='middle';
+   let ty=ch*k+capH*.36;
+   if(capB){
+    g.fillStyle='#e8d9a0';
+    g.font=`${Math.round(9*k)}px ui-monospace,Menlo,Consolas,monospace`;
+    g.fillText('\u201c'+capB+'\u201d',cx,ty);
+    ty+=capH*.42;
+   }
+   if(capF){
+    g.fillStyle='#64748b';
+    g.font=`${Math.round(7.5*k)}px ui-monospace,Menlo,Consolas,monospace`;
+    g.fillText('\u2014 '+capF,cx,ty);
+   }
+   try{
+    const url=location.protocol.startsWith('http')?location.href:'https://x.com/shuvramotion';
+    const qm=makeQR(url), qs=Math.max(2,Math.round(1.6*k)), qpad=Math.round(4*k);
+    const qtot=qm.length*qs, qx=pw-qtot-Math.round(14*k), qy=ch*k+(capH-qtot)*.5;
+    g.fillStyle='#e2e8f0';g.fillRect(qx-qpad,qy-qpad,qtot+qpad*2,qtot+qpad*2);
+    g.fillStyle='#04060b';
+    for(let r=0;r<qm.length;r++)for(let c=0;c<qm.length;c++)if(qm[r][c])g.fillRect(qx+c*qs,qy+r*qs,qs,qs);
+   }catch(e){}
+  }
+  const fname='christmas-globe-'+new Date().toISOString().slice(0,10)+'.png';
+  return new Promise(res=>{
+   const done=b=>{
+    if(b){saveBlob(b,fname);res({ok:true,bytes:b.size,w:out.width,h:out.height});return}
+    // toBlob gave us nothing: try the data URL before giving up
+    try{
+     const u=out.toDataURL('image/png');
+     const a=document.createElement('a');
+     a.href=u;a.download=fname;document.body.appendChild(a);a.click();a.remove();
+     res({ok:true,bytes:u.length,w:out.width,h:out.height,viaDataUrl:true});
+    }catch(e){res({ok:false,why:String(e)})}
+   };
+   try{out.toBlob(done,'image/png')}catch(e){done(null)}
+  });
+ },
+ // pixel bounds of everything actually drawn, for cropping the poster
+ posterBox(){const bb={x0:1e9,x1:-1e9,y0:1e9,y1:-1e9};
+  for(const q of pts){if(q.t0>T)continue;P(q.x,q.y,q.z);const px=gx*cellW,py=gy*cellH;
+   if(px<bb.x0)bb.x0=px;if(px>bb.x1)bb.x1=px;if(py<bb.y0)bb.y0=py;if(py>bb.y1)bb.y1=py}
+  for(const q of dome){P(q.x,q.y,q.z);const px=gx*cellW,py=gy*cellH;
+   if(px<bb.x0)bb.x0=px;if(px>bb.x1)bb.x1=px;if(py<bb.y0)bb.y0=py;if(py>bb.y1)bb.y1=py}
+  if(bb.x0>bb.x1)return {x0:0,x1:W,y0:0,y1:Hh};
+  return {x0:Math.floor(bb.x0),x1:Math.ceil(bb.x1),y0:Math.floor(bb.y0),y1:Math.ceil(bb.y1)};
+ },
+ poster(){                               // the image: one tap, one file
+  return this.posterPNG();
+ },
+ posterText(){                           // the text art, on purpose
+  const txt=this.posterASCII();
+  const name='christmas-globe-'+new Date().toISOString().slice(0,10);
+  saveBlob(new Blob([txt],{type:'text/plain;charset=utf-8'}),name+'.txt');
+  return {lines:txt.split('\n').length,chars:txt.length};
+ },
+ shareBuild(){
+  // Collect what makes this globe *yours*: the decorations, the last wish.
+  const payload={
+   v:1,
+   from:(window.__from||'a friend'),
+   at:new Date().toISOString().slice(0,10),
+   taps:growth.taps,gifts:growth.gifts,orns:growth.orns,
+   wish:(wishTxt||lastWish||'').slice(0,28)
+  };
+  const html=serialise();
+  // inject before the first <script> so the seed exists when the globe boots
+  const tag='<script>window.FROST_SEED='+JSON.stringify(payload).replace(/</g,'\\u003c')+'<\/script>\n';
+  const i=html.indexOf('<script>');
+  return i<0?html:html.slice(0,i)+tag+html.slice(i);
+ },
+ share(){ // download the personalised copy
+  const html=this.shareBuild();
+  const blob=new Blob([html],{type:'text/html'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='christmas-globe-'+((window.__from||'wish').replace(/[^\w.-]+/g,'-'))+'.html';
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+  return {bytes:blob.size,seed:{gifts:growth.gifts.length,orns:growth.orns.length,wish:(wishTxt||lastWish||'')}};
+ },
+ placeCrumb(){/* the footer row reserves the space now; nothing to dodge */},
+ paintIdentity(){
+  // target the spans, never h0 itself: writing h0.textContent would erase the
+  // subtitle markup that sits beside the name
+  const hn=document.getElementById('hn'),hs=document.getElementById('hs');
+  if(hn)hn.textContent=SITE.name;
+  if(hs)hs.textContent=SITE.sub?' \u2014 '+SITE.sub:'';
+  const cr=document.getElementById('hcrumb');
+  if(cr)cr.textContent='\u00a9 '+SITE.year+' '+SITE.by;
+  const hx=document.getElementById('hx');
+  if(hx){
+   hx.href='https://x.com/'+SITE.x;
+   const sp=hx.querySelector('span')||hx;
+   sp.textContent='@'+SITE.x;
+   hx.setAttribute('aria-label',SITE.by+' on X, @'+SITE.x);
+  }
+  if(typeof document!=='undefined'){
+   document.title=SITE.name+(SITE.sub?' \u2014 '+SITE.sub:'');
+  }
+  return {name:SITE.name,sub:SITE.sub,credit:cr?cr.textContent:null,x:SITE.x};
+ },
+ sfxState(){return {on:sfx.on,amb:amb.on,step:amb.step,ac:AC?AC.state:'none',next:+(amb.next||0).toFixed(2),now:AC?+AC.currentTime.toFixed(2):0}},
+ snowScreen(){const out=[];for(const f of snow){P(f.x,f.y,f.z);out.push([gx,gy,+Math.hypot(f.x,f.y-CY,f.z).toFixed(3)])}return {cols,rows,useFrac:rows>46?0.74:1,pts:out}},
+ snowDist(){const b={top:0,mid:0,low:0,out:0};let worst=0;for(const f of snow){const ry=f.y-CY,d=Math.hypot(f.x,ry,f.z);if(d>DR) b.out++;if(ry>.55)b.top++;else if(ry>-.1)b.mid++;else b.low++;if(d>worst)worst=d}return {...b,worst:+worst.toFixed(3)}},
+ escape(){ // how many flakes are outside the glass right now
+  let n=0,worst=0;for(const s of snow){const d=Math.hypot(s.x,s.y-CY,s.z);if(d>DR*1.02)n++;if(d>worst)worst=d}
+  return {n,worst:+worst.toFixed(3),DR,total:snow.length,present:snow.filter(s=>T-s.delay>=0).length}},
+ growth(){return {taps:growth.taps,gifts:growth.gifts.length,orns:growth.orns.length}},
+ lastBell(){return window.__lastBell||0}};
+try{window.__fg.paintIdentity()}catch(e){}
+// the toolbar's height changes once its buttons wrap, so measure a few times
+// as the layout settles rather than trusting one early read
+[0,60,200,600,1200].forEach(t=>setTimeout(()=>{try{window.__fg.placeCrumb()}catch(e){}},t));
+addEventListener('resize',()=>{try{window.__fg.placeCrumb()}catch(e){}});
+if(window.ResizeObserver){
+ const bar=document.getElementById('bar');
+ if(bar)new ResizeObserver(()=>{try{window.__fg.placeCrumb()}catch(e){}}).observe(bar);
+}
+})();
+</script>
+</body>
+</html>
